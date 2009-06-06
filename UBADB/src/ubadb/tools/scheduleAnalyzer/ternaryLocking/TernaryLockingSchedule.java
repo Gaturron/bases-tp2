@@ -139,7 +139,12 @@ public class TernaryLockingSchedule extends Schedule
 		
 		result = result && hashmap.isEmpty();
 		
-		return null;
+		LegalResult legalresult = new LegalResult(
+				result, 
+				null, 
+				null);
+		
+		return legalresult;
 	}
 	//[end]
 }

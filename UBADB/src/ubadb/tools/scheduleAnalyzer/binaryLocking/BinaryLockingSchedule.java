@@ -12,6 +12,7 @@ import ubadb.tools.scheduleAnalyzer.common.Schedule;
 import ubadb.tools.scheduleAnalyzer.common.ScheduleGraph;
 import ubadb.tools.scheduleAnalyzer.common.ScheduleType;
 import ubadb.tools.scheduleAnalyzer.common.results.LegalResult;
+import ubadb.tools.scheduleAnalyzer.nonLocking.NonLockingSchedule;
 
 public class BinaryLockingSchedule extends Schedule
 {
@@ -62,6 +63,41 @@ public class BinaryLockingSchedule extends Schedule
 		//Un schedule es legal cuando:
 		//- Cada transacción T posee como máximo un commit
 		
+		//agarro las transacciones
+		java.util.List<String> transacciones = this.getTransactions();
+		
+		//agarro las acciones de la historia
+		java.util.List<Action> lst = this.getActions();
+		for(Iterator<Action> it = lst.iterator(); it.hasNext();)
+		{
+			Action elem = it.next();
+			if(elem.commits())
+			{
+				//si tiene commit, tengo que ver que sea la ultima operacion
+				//de esa transaccion
+				boolean ultima = true;
+				for(Iterator<Action> it1 = it; it.hasNext();)
+				{
+					Action elem1 = it1.next();
+					
+					if(elem1.getTransaction() == elem.getTransaction())
+					{
+						//todas las prox acciones tienen que ser de otras transacciones
+						// o sea distintas de elem
+						ultima = false;
+					}
+				}
+					
+				//si elem es commit Y era la ultima transaccion => lo saco de la lista transacciones
+				if(ultima) transacciones.remove(elem.getTransaction());
+			}
+		}
+		
+		//si transacciones es vacia quiere decir que todas tuvieron a lo sumo 1 commit
+		
+		boolean resCommitOK = false;
+		if(transacciones.isEmpty()) resCommitOK = true;
+		
 		// igual que nonlocking 
 		
 		//- Si T hace LOCK A, luego debe hacer UNLOCK A
@@ -70,9 +106,9 @@ public class BinaryLockingSchedule extends Schedule
 		
 		Set <String> usados = new HashSet <String>();
 				
-		boolean result = true;
+		boolean resLOCK = true;
 		
-		java.util.List<Action> lst = this.getActions();
+		lst = this.getActions();
 		
 		for(Iterator<Action> it = lst.iterator(); it.hasNext();)
 		{
@@ -85,7 +121,7 @@ public class BinaryLockingSchedule extends Schedule
 				//- Si T hace LOCK A, no puede volver a hacer LOCK A a menos que antes haya hecho UNLOCK A
 				if(usados.contains(key))
 				{
-					result = false;
+					resLOCK = false;
 				}else{
 					usados.add(key);
 				}
@@ -99,16 +135,21 @@ public class BinaryLockingSchedule extends Schedule
 				{
 					usados.remove(key);
 				}else{
-					result = true;
+					resLOCK = false;
 				}
 			}
 		}
 		
 		//si todas las Transacciones Unlockearon todo => el hash esta vacio
 		
-		result = result && usados.isEmpty();
-			
-		return null;
+		resLOCK = resLOCK && usados.isEmpty();
+		
+		LegalResult result = new LegalResult(
+				resCommitOK && resLOCK, 
+				null, 
+				null);
+		
+		return result;
 	}
 	//[end]
 }
